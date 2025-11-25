@@ -1,0 +1,11 @@
+.python-version
+finance_data/
+.DS_Store
+.env
+__pycache__/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.pyc
+hm_misc/
+test_notebook.ipynb
