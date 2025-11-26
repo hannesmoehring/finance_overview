@@ -9,3 +9,6 @@ __pycache__/
 *.pyc
 hm_misc/
 test_notebook.ipynb
+
+!*.gitignore
+!*.gitkeep

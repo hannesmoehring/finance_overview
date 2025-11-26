@@ -5,7 +5,7 @@ from urllib.error import URLError
 from src.parsers import parse_all_comdirect
 from src.dashboard_utility import get_monthly_data
 
-comdirect_df = parse_all_comdirect("finance_data/comdirect/")
+comdirect_df = parse_all_comdirect()
 
 st.write("# Comdirect Bank Transactions")
 st.write(comdirect_df)

@@ -4,8 +4,29 @@ from glob import glob
 from pypdf import PdfReader
 import dateparser
 
+comdirect_process_mapping = {
+    "Übertrag / Überweisung": "Transfer",
+    "Lastschrift / Belastung": "Card_Transaction",
+    "Gutschrift": "Credit",
+    "Dauerauftrag": "Standing Order",
+    "Kartenverfügung": "Card_Transaction",
+    "Zinsen": "Interest",
+    "Gebühren": "Fees",
+}
 
-def parse_comdirect_csv(file_path: str) -> pd.DataFrame:
+traderepublic_process_mapping = {
+    "Kauf": "Buy",
+    "Verkauf": "Sell",
+    "Überweisung": "Transfer",
+    "Kartentransaktion": "Card_Transaction",
+}
+
+olb_process_mapping = {
+    "Transfer": "Transfer",
+}
+
+
+def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     df = pd.read_csv(
         file_path,
         sep=";",
@@ -24,7 +45,7 @@ def parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     df.columns = ["date", "process", "details", "amount"]
 
     df = df[df["date"].notna()]
-
+    df["date"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce").dt.date
     df["amount"] = pd.to_numeric(df["amount"].str.replace(".", "").str.replace(",", "."))
     df["process"] = df["process"].astype("category")
     df["details"] = df["details"].astype("string")
@@ -36,7 +57,7 @@ def parse_comdirect_csv(file_path: str) -> pd.DataFrame:
 def parse_all_comdirect() -> pd.DataFrame:
     dir_path = os.path.join("finance_data", "comdirect")
     all_files = glob(os.path.join(dir_path, "*.csv"))
-    df_list = [parse_comdirect_csv(file) for file in all_files]
+    df_list = [_parse_comdirect_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)
     combined_df.reset_index(drop=True, inplace=True)
@@ -47,6 +68,9 @@ def parse_all_comdirect() -> pd.DataFrame:
 
     # fixing some encoding issues and improving quality
     combined_df["process"] = combined_df["process"].str.replace("ï¿½bertrag / ï¿½berweisung", "Übertrag / Überweisung")
+    combined_df["process"] = combined_df["process"].str.replace("Kartenverfï¿½gung", "Kartenverfügung")
+
+    combined_df["process"] = combined_df["process"].map(comdirect_process_mapping).fillna(combined_df["process"])
 
     combined_df["long_details"] = combined_df["details"]
     combined_df["details"] = combined_df["details"].str.split(" ").str[1:4].str.join(" ")
@@ -57,7 +81,7 @@ def parse_all_comdirect() -> pd.DataFrame:
 def parse_all_traderepublic() -> pd.DataFrame:
     dir_path = os.path.join("finance_data", "traderepublic")
     all_files = glob(os.path.join(dir_path, "*.pdf"))
-    df_list = [parse_traderepublic_pdf(file) for file in all_files]
+    df_list = [_parse_traderepublic_pdf(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)
     combined_df.reset_index(drop=True, inplace=True)
@@ -65,10 +89,13 @@ def parse_all_traderepublic() -> pd.DataFrame:
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df[combined_df["amount"].notna()]
     combined_df = combined_df[combined_df["process"].notna()]
+
+    combined_df["process"] = combined_df["process"].map(traderepublic_process_mapping).fillna(combined_df["process"])
+
     return combined_df
 
 
-def parse_traderepublic_pdf(path: str) -> pd.DataFrame:
+def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
     reader = PdfReader(path)
 
     all_text = []
@@ -129,12 +156,12 @@ def parse_traderepublic_pdf(path: str) -> pd.DataFrame:
     return traderepublic_df
 
 
-def parse_olb_csv(path: str) -> pd.DataFrame:
+def _parse_olb_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, sep=";", encoding="cp1252")
     df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
-
     olb_df = pd.DataFrame(columns=["date", "process", "details", "amount"])
-    olb_df["date"] = df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"]))
+
+    olb_df["date"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt.date
     olb_df["process"] = "Transfer"
     olb_df["details"] = df["Empfänger/Auftraggeber"]
     olb_df["amount"] = df["Betrag"].str.replace(".", "").str.replace(",", ".").astype(float)
@@ -145,7 +172,7 @@ def parse_olb_csv(path: str) -> pd.DataFrame:
 def parse_all_olb() -> pd.DataFrame:
     dir_path = os.path.join("finance_data", "olb")
     all_files = glob(os.path.join(dir_path, "*.csv"))
-    df_list = [parse_olb_csv(file) for file in all_files]
+    df_list = [_parse_olb_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)
     combined_df.reset_index(drop=True, inplace=True)
@@ -153,4 +180,6 @@ def parse_all_olb() -> pd.DataFrame:
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df[combined_df["amount"].notna()]
     combined_df = combined_df[combined_df["process"].notna()]
+    combined_df["process"] = combined_df["process"].map(olb_process_mapping).fillna(combined_df["process"])
+
     return combined_df
