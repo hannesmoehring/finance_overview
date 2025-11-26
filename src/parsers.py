@@ -4,7 +4,7 @@ from glob import glob
 from pypdf import PdfReader
 import dateparser
 
-comdirect_process_mapping = {
+COMDIRECT_PROCESS_MAPPING = {
     "Übertrag / Überweisung": "Transfer",
     "Lastschrift / Belastung": "Card_Transaction",
     "Gutschrift": "Credit",
@@ -14,16 +14,18 @@ comdirect_process_mapping = {
     "Gebühren": "Fees",
 }
 
-traderepublic_process_mapping = {
+TRADEREPUBLIC_PROCESS_MAPPING = {
     "Kauf": "Buy",
     "Verkauf": "Sell",
     "Überweisung": "Transfer",
     "Kartentransaktion": "Card_Transaction",
 }
 
-olb_process_mapping = {
+OLB_PROCESS_MAPPING = {
     "Transfer": "Transfer",
 }
+
+COLUMNS = ["date", "process", "details", "amount"]
 
 
 def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
@@ -42,7 +44,7 @@ def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     )
     df.drop(columns=[0], inplace=True)
     df.drop(columns=[5], inplace=True)
-    df.columns = ["date", "process", "details", "amount"]
+    df.columns = COLUMNS
 
     df = df[df["date"].notna()]
     df["date"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce").dt.date
@@ -70,7 +72,7 @@ def parse_all_comdirect() -> pd.DataFrame:
     combined_df["process"] = combined_df["process"].str.replace("ï¿½bertrag / ï¿½berweisung", "Übertrag / Überweisung")
     combined_df["process"] = combined_df["process"].str.replace("Kartenverfï¿½gung", "Kartenverfügung")
 
-    combined_df["process"] = combined_df["process"].map(comdirect_process_mapping).fillna(combined_df["process"])
+    combined_df["process"] = combined_df["process"].map(COMDIRECT_PROCESS_MAPPING).fillna(combined_df["process"])
 
     combined_df["long_details"] = combined_df["details"]
     combined_df["details"] = combined_df["details"].str.split(" ").str[1:4].str.join(" ")
@@ -90,7 +92,8 @@ def parse_all_traderepublic() -> pd.DataFrame:
     combined_df = combined_df[combined_df["amount"].notna()]
     combined_df = combined_df[combined_df["process"].notna()]
 
-    combined_df["process"] = combined_df["process"].map(traderepublic_process_mapping).fillna(combined_df["process"])
+    combined_df["amount"] = pd.to_numeric(combined_df["amount"])
+    combined_df["process"] = combined_df["process"].map(TRADEREPUBLIC_PROCESS_MAPPING).fillna(combined_df["process"])
 
     return combined_df
 
@@ -127,7 +130,7 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
         else:
             i += 1
 
-    traderepublic_df = pd.DataFrame(columns=["date", "process", "details", "amount"])
+    traderepublic_df = pd.DataFrame(columns=COLUMNS)
 
     new_row_template = {"date": "", "process": "", "details": "", "amount": ""}
     for line in filtered_lines:
@@ -159,7 +162,7 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
 def _parse_olb_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, sep=";", encoding="cp1252")
     df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
-    olb_df = pd.DataFrame(columns=["date", "process", "details", "amount"])
+    olb_df = pd.DataFrame(columns=COLUMNS)
 
     olb_df["date"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt.date
     olb_df["process"] = "Transfer"
@@ -180,6 +183,6 @@ def parse_all_olb() -> pd.DataFrame:
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df[combined_df["amount"].notna()]
     combined_df = combined_df[combined_df["process"].notna()]
-    combined_df["process"] = combined_df["process"].map(olb_process_mapping).fillna(combined_df["process"])
+    combined_df["process"] = combined_df["process"].map(OLB_PROCESS_MAPPING).fillna(combined_df["process"])
 
     return combined_df

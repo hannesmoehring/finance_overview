@@ -2,6 +2,7 @@ import pandas as pd
 import altair as alt
 import streamlit as st
 import numpy as np
+from src.parsers import parse_all_comdirect, parse_all_traderepublic, parse_all_olb
 
 
 def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -15,3 +16,11 @@ def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
 
     monthly["month"] = monthly["month"].dt.strftime("%Y-%m")
     return pd.DataFrame(monthly)
+
+
+@st.cache_data
+def get_all_bank_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    comdirect_df = parse_all_comdirect()
+    traderepublic_df = parse_all_traderepublic()
+    olb_df = parse_all_olb()
+    return comdirect_df, traderepublic_df, olb_df
