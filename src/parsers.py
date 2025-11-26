@@ -28,13 +28,14 @@ def parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     df["amount"] = pd.to_numeric(df["amount"].str.replace(".", "").str.replace(",", "."))
     df["process"] = df["process"].astype("category")
     df["details"] = df["details"].astype("string")
-    df["short_details"] = df["details"].str.slice(0, 30).astype("string")
+    # df["short_details"] = df["details"].str.slice(0, 30).astype("string")
 
     return df
 
 
-def parse_all_comdirect(dir_path: str) -> pd.DataFrame:
-    all_files = glob(os.path.join(dir_path, "umsaetze_*.csv"))
+def parse_all_comdirect() -> pd.DataFrame:
+    dir_path = os.path.join("finance_data", "comdirect")
+    all_files = glob(os.path.join(dir_path, "*.csv"))
     df_list = [parse_comdirect_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)
@@ -43,10 +44,18 @@ def parse_all_comdirect(dir_path: str) -> pd.DataFrame:
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df[combined_df["amount"].notna()]
     combined_df = combined_df[combined_df["process"].notna()]
+
+    # fixing some encoding issues and improving quality
+    combined_df["process"] = combined_df["process"].str.replace("ï¿½bertrag / ï¿½berweisung", "Übertrag / Überweisung")
+
+    combined_df["long_details"] = combined_df["details"]
+    combined_df["details"] = combined_df["details"].str.split(" ").str[1:4].str.join(" ")
+
     return combined_df
 
 
-def parse_all_traderepublic(dir_path: str) -> pd.DataFrame:
+def parse_all_traderepublic() -> pd.DataFrame:
+    dir_path = os.path.join("finance_data", "traderepublic")
     all_files = glob(os.path.join(dir_path, "*.pdf"))
     df_list = [parse_traderepublic_pdf(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
@@ -118,3 +127,30 @@ def parse_traderepublic_pdf(path: str) -> pd.DataFrame:
         traderepublic_df = pd.concat([traderepublic_df, pd.DataFrame([new_row])], ignore_index=True)
 
     return traderepublic_df
+
+
+def parse_olb_csv(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, sep=";", encoding="cp1252")
+    df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
+
+    olb_df = pd.DataFrame(columns=["date", "process", "details", "amount"])
+    olb_df["date"] = df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"]))
+    olb_df["process"] = "Transfer"
+    olb_df["details"] = df["Empfänger/Auftraggeber"]
+    olb_df["amount"] = df["Betrag"].str.replace(".", "").str.replace(",", ".").astype(float)
+
+    return olb_df
+
+
+def parse_all_olb() -> pd.DataFrame:
+    dir_path = os.path.join("finance_data", "olb")
+    all_files = glob(os.path.join(dir_path, "*.csv"))
+    df_list = [parse_olb_csv(file) for file in all_files]
+    combined_df = pd.concat(df_list, ignore_index=True)
+    combined_df.sort_values(by="date", inplace=True)
+    combined_df.reset_index(drop=True, inplace=True)
+
+    combined_df = combined_df.drop_duplicates()
+    combined_df = combined_df[combined_df["amount"].notna()]
+    combined_df = combined_df[combined_df["process"].notna()]
+    return combined_df
