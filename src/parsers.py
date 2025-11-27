@@ -25,7 +25,13 @@ OLB_PROCESS_MAPPING = {
     "Transfer": "Transfer",
 }
 
-COLUMNS = ["date", "process", "details", "amount"]
+COLUMNS = [
+    "date",
+    "process",
+    "details",
+    "amount",
+    # "datetime",
+]
 
 
 def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
@@ -51,7 +57,6 @@ def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     df["amount"] = pd.to_numeric(df["amount"].str.replace(".", "").str.replace(",", "."))
     df["process"] = df["process"].astype("category")
     df["details"] = df["details"].astype("string")
-    # df["short_details"] = df["details"].str.slice(0, 30).astype("string")
 
     return df
 
@@ -140,6 +145,7 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
         dt1 = dateparser.parse(" ".join(dates), settings={"DATE_ORDER": "DMY", "PREFER_DAY_OF_MONTH": "first"})
         assert dt1 is not None
         new_row["date"] = dt1.date()  # type: ignore
+        new_row["datetime"] = dt1  # type: ignore
         new_row["process"] = line_split[3]
         new_row["amount"] = line_split[-2].split("\xa0")[0].replace(".", "").replace(",", ".")
         if line_split[3] == "Überweisung":
@@ -164,6 +170,7 @@ def _parse_olb_csv(path: str) -> pd.DataFrame:
     df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
     olb_df = pd.DataFrame(columns=COLUMNS)
 
+    # olb_df["datetime"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt
     olb_df["date"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt.date
     olb_df["process"] = "Transfer"
     olb_df["details"] = df["Empfänger/Auftraggeber"]

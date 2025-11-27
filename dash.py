@@ -64,6 +64,8 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
+st.divider()
+
 st.write("# Spending / Income breakdown")
 is_spending = st.toggle("Income/Spending", value=True)
 
@@ -103,6 +105,8 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
+# TODO: right now when choosing dates at the top, it will rerun this entire thing,
+# should include dates and types, and just filter cached df, would greatly reduce runtime
 agg = embed_transaction_details(df, is_spending=is_spending)
 
 st.write("## Clustering of transaction details")
@@ -121,11 +125,13 @@ if st.button("Reset clusters"):
 options = st.multiselect(
     "Show clusters",
     num_clusters,
-    default=st.session_state.selected_clusters,
     key="selected_clusters",
 )
 
 filtered_agg = agg[agg["cluster"].isin(st.session_state.selected_clusters)]
+
+cluster_sum = agg.groupby("cluster", as_index=False)["total_amount"].sum()
+st.write(cluster_sum)
 
 fig = px.scatter(filtered_agg, x="x", y="y", size="total_amount", color="cluster", hover_name="details", size_max=60)
 st.plotly_chart(fig, use_container_width=True)
