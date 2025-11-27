@@ -3,20 +3,22 @@ import pandas as pd
 import altair as alt
 from urllib.error import URLError
 from src.parsers import parse_all_comdirect, COLUMNS, COMDIRECT_PROCESS_MAPPING, TRADEREPUBLIC_PROCESS_MAPPING, OLB_PROCESS_MAPPING
-from src.dashboard_utility import embed_transaction_details, get_monthly_data, get_all_bank_data
+from src.dashboard_utility import embed_transaction_details, get_monthly_data, get_all_bank_data, session_cache
 import plotly.express as px
 
 
 uploaded_files = st.file_uploader("Upload account files", accept_multiple_files=True, type=["csv", "pdf"])
-
 is_local = st.toggle("Use local files for development", value=False)
-
+# maybe move removal of session state to here? upon change in is_local or uploaded_files (currently in session_cache(...))
 st.divider()
 
 banks = ["Comdirect", "TradeRepublic", "OLB"]
 process_types = list(set(set(COMDIRECT_PROCESS_MAPPING.values()) | set(TRADEREPUBLIC_PROCESS_MAPPING.values()) | set(OLB_PROCESS_MAPPING.values())))
 
-comdirect_df, traderepublic_df, olb_df = get_all_bank_data(local_files=is_local, files=uploaded_files)
+comdirect_df, traderepublic_df, olb_df = session_cache(
+    "all_bank_data", lambda: get_all_bank_data(files=uploaded_files, is_local=is_local), is_local=is_local, num_files=len(uploaded_files)
+)
+
 # COMDIRECTDF, TRADEREPUBLICDF, OLBDF = (comdirect_df.copy(), traderepublic_df.copy(), olb_df.copy())
 
 selected_banks = st.multiselect("Choose countries", banks, default=["Comdirect", "OLB", "TradeRepublic"])
@@ -81,8 +83,9 @@ st.divider()
 
 st.write("# Spending / Income breakdown")
 is_spending = st.toggle("Income/Spending", value=True)
+current_action = "Spending" if is_spending else "Income"
 
-st.write("showing (absolute) data for: __{}__".format("Spending" if is_spending else "Income"))
+st.write(f"showing (absolute) data for: __{current_action}__")
 
 
 if is_spending:
@@ -94,7 +97,7 @@ else:
 flow_df = spending_data.copy()
 
 min_spending, max_spending = st.select_slider(
-    "Select minimum and maximum spending amount to be considered",
+    f"Select minimum and maximum __{current_action}__ amount to be considered",
     options=spending_data["amount"].sort_values().unique(),
     value=(spending_data["amount"].min(), spending_data["amount"].max()),
     format_func=lambda x: f"{x:.2f} €",
@@ -120,13 +123,17 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
-agg_spending, agg_income = embed_transaction_details(df)
+
+agg_spending, agg_income = session_cache(
+    "embedded_transaction_details", lambda: embed_transaction_details(df), is_local=is_local, num_files=len(uploaded_files)
+)
+
 if is_spending:
     agg = agg_spending
 else:
     agg = agg_income
 
-st.write("## Clustering of transaction details")
+st.write(f"## Clustering of __{current_action}__ details")
 num_clusters = agg["cluster"].astype(int).unique()
 num_clusters.sort()
 
@@ -199,7 +206,7 @@ month_heatmap = (
 )
 
 st.write("## Heatmaps")
-st.write("### Spending / Income by weekday")
+st.write(f"### __{current_action}__ by weekday")
 st.altair_chart(weekday_heatmap)
-st.write("### Spending / Income by monthday")
+st.write(f"### __{current_action}__ by monthday")
 st.altair_chart(month_heatmap)

@@ -25,15 +25,16 @@ def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(monthly)
 
 
-@st.cache_data
-def get_all_bank_data(files=None, local_files: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    if local_files:
+# @st.cache_data this is unsafe, cached data is global
+def get_all_bank_data(files=None, is_local: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    print("Using local files for development")
+    if is_local:
+        print("Using local files for development")
         comdirect_df = parse_all_comdirect()
         traderepublic_df = parse_all_traderepublic()
         olb_df = parse_all_olb()
     else:
         if files is None or len(files) == 0:
-
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         comdirect_files = [file for file in files if "umsaetze" in file.name]
         traderepublic_files = [file for file in files if file.name.endswith(".pdf")]
@@ -46,7 +47,7 @@ def get_all_bank_data(files=None, local_files: bool = False) -> tuple[pd.DataFra
     return comdirect_df, traderepublic_df, olb_df
 
 
-@st.cache_data
+# @st.cache_data this is unsafe, cached data is global
 def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     spending_df = df[df["amount"] < 0]
     spending_df["amount"] = df["amount"].abs()
@@ -83,3 +84,20 @@ def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
 @st.cache_resource
 def load_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
+
+
+def session_cache(key, fn, is_local: bool, num_files: int):
+    if "is_local" not in st.session_state:
+        st.session_state["is_local"] = is_local
+    if "num_files" not in st.session_state:
+        st.session_state["num_files"] = num_files
+
+    if st.session_state["is_local"] != is_local or st.session_state["num_files"] != num_files:
+        st.session_state["is_local"] = is_local
+        st.session_state["num_files"] = num_files
+        if key in st.session_state:
+            del st.session_state[key]
+
+    if key not in st.session_state:
+        st.session_state[key] = fn()
+    return st.session_state[key]
