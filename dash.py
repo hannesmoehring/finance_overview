@@ -3,7 +3,8 @@ import pandas as pd
 import altair as alt
 from urllib.error import URLError
 from src.parsers import parse_all_comdirect, COLUMNS, COMDIRECT_PROCESS_MAPPING, TRADEREPUBLIC_PROCESS_MAPPING, OLB_PROCESS_MAPPING
-from src.dashboard_utility import get_monthly_data, get_all_bank_data
+from src.dashboard_utility import embed_transaction_details, get_monthly_data, get_all_bank_data
+import plotly.express as px
 
 banks = ["Comdirect", "TradeRepublic", "OLB"]
 process_types = list(set(set(COMDIRECT_PROCESS_MAPPING.values()) | set(TRADEREPUBLIC_PROCESS_MAPPING.values()) | set(OLB_PROCESS_MAPPING.values())))
@@ -63,9 +64,17 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
+st.write("# Spending / Income breakdown")
+is_spending = st.toggle("Income/Spending", value=True)
 
-spending_data = df[df["amount"] < 0]
-spending_data["amount"] = spending_data["amount"].abs()
+st.write("showing (absolute) data for: __{}__".format("Spending" if is_spending else "Income"))
+
+
+if is_spending:
+    spending_data = df[df["amount"] < 0]
+    spending_data["amount"] = spending_data["amount"].abs()
+else:
+    spending_data = df[df["amount"] >= 0]
 
 min_spending, max_spending = st.select_slider(
     "Select minimum and maximum spending amount to be considered",
@@ -80,7 +89,7 @@ spending_data = spending_data.groupby("details", as_index=False)["amount"].sum()
 
 chart = (
     alt.Chart(spending_data)
-    .mark_circle()
+    .mark_bar()
     .encode(
         x=alt.X(
             "details:N",
@@ -88,9 +97,35 @@ chart = (
             axis=None,
         ),
         y=alt.Y("total_amount:Q", title="Total amount"),
-        size=alt.Size("total_amount:Q", title="Total amount"),
         tooltip=["details", "total_amount"],
     )
 )
 
 st.altair_chart(chart, use_container_width=True)
+
+agg = embed_transaction_details(df, is_spending=is_spending)
+
+st.write("## Clustering of transaction details")
+
+num_clusters = agg["cluster"].astype(int).unique()
+num_clusters.sort()
+
+if "selected_clusters" not in st.session_state:
+    st.session_state.selected_clusters = list(num_clusters)
+
+
+if st.button("Reset clusters"):
+    st.session_state.selected_clusters = list(num_clusters)
+    st.rerun()
+
+options = st.multiselect(
+    "Show clusters",
+    num_clusters,
+    default=st.session_state.selected_clusters,
+    key="selected_clusters",
+)
+
+filtered_agg = agg[agg["cluster"].isin(st.session_state.selected_clusters)]
+
+fig = px.scatter(filtered_agg, x="x", y="y", size="total_amount", color="cluster", hover_name="details", size_max=60)
+st.plotly_chart(fig, use_container_width=True)
