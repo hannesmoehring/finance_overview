@@ -36,9 +36,9 @@ COLUMNS = [
 ]
 
 
-def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
+def _parse_comdirect_csv(file) -> pd.DataFrame:
     df = pd.read_csv(
-        file_path,
+        file,
         sep=";",
         encoding="cp1252",
         engine="python",
@@ -50,6 +50,7 @@ def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
         parse_dates=[0],
         dayfirst=True,
     )
+
     df.drop(columns=[0], inplace=True)
     df.drop(columns=[5], inplace=True)
     df[6] = pd.NaT
@@ -68,9 +69,13 @@ def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     return df
 
 
-def parse_all_comdirect() -> pd.DataFrame:
-    dir_path = os.path.join("finance_data", "comdirect")
-    all_files = glob(os.path.join(dir_path, "*.csv"))
+def parse_all_comdirect(files=None) -> pd.DataFrame:
+    if not files:
+        dir_path = os.path.join("finance_data", "comdirect")
+        all_files = glob(os.path.join(dir_path, "*.csv"))
+    else:
+        all_files = files
+
     df_list = [_parse_comdirect_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
 
@@ -97,9 +102,13 @@ def parse_all_comdirect() -> pd.DataFrame:
     return combined_df
 
 
-def parse_all_traderepublic() -> pd.DataFrame:
-    dir_path = os.path.join("finance_data", "traderepublic")
-    all_files = glob(os.path.join(dir_path, "*.pdf"))
+def parse_all_traderepublic(files=None) -> pd.DataFrame:
+    if not files:
+        dir_path = os.path.join("finance_data", "traderepublic")
+        all_files = glob(os.path.join(dir_path, "*.pdf"))
+    else:
+        all_files = files
+
     df_list = [_parse_traderepublic_pdf(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)
@@ -115,8 +124,8 @@ def parse_all_traderepublic() -> pd.DataFrame:
     return combined_df
 
 
-def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
-    reader = PdfReader(path)
+def _parse_traderepublic_pdf(file) -> pd.DataFrame:
+    reader = PdfReader(file)
 
     all_text = []
     for page in reader.pages:
@@ -181,8 +190,8 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
     return traderepublic_df
 
 
-def _parse_olb_csv(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, sep=";", encoding="cp1252")
+def _parse_olb_csv(file) -> pd.DataFrame:
+    df = pd.read_csv(file, sep=";", encoding="cp1252")
     df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
     olb_df = pd.DataFrame(columns=COLUMNS)
     # olb_df["datetime"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt
@@ -197,9 +206,14 @@ def _parse_olb_csv(path: str) -> pd.DataFrame:
     return olb_df
 
 
-def parse_all_olb() -> pd.DataFrame:
-    dir_path = os.path.join("finance_data", "olb")
-    all_files = glob(os.path.join(dir_path, "*.csv"))
+def parse_all_olb(files=None) -> pd.DataFrame:
+
+    if not files:
+        dir_path = os.path.join("finance_data", "olb")
+        all_files = glob(os.path.join(dir_path, "*.csv"))
+    else:
+        all_files = files
+
     df_list = [_parse_olb_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
     combined_df.sort_values(by="date", inplace=True)

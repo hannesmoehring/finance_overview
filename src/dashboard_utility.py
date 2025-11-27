@@ -26,10 +26,23 @@ def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_data
-def get_all_bank_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    comdirect_df = parse_all_comdirect()
-    traderepublic_df = parse_all_traderepublic()
-    olb_df = parse_all_olb()
+def get_all_bank_data(files=None, local_files: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if local_files:
+        comdirect_df = parse_all_comdirect()
+        traderepublic_df = parse_all_traderepublic()
+        olb_df = parse_all_olb()
+    else:
+        if files is None or len(files) == 0:
+
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        comdirect_files = [file for file in files if "umsaetze" in file.name]
+        traderepublic_files = [file for file in files if file.name.endswith(".pdf")]
+        olb_files = [file for file in files if "CSV-Export" in file.name]
+
+        comdirect_df = parse_all_comdirect(comdirect_files)
+        traderepublic_df = parse_all_traderepublic(traderepublic_files)
+        olb_df = parse_all_olb(olb_files)
+
     return comdirect_df, traderepublic_df, olb_df
 
 

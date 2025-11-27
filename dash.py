@@ -6,10 +6,17 @@ from src.parsers import parse_all_comdirect, COLUMNS, COMDIRECT_PROCESS_MAPPING,
 from src.dashboard_utility import embed_transaction_details, get_monthly_data, get_all_bank_data
 import plotly.express as px
 
+
+uploaded_files = st.file_uploader("Upload account files", accept_multiple_files=True, type=["csv", "pdf"])
+
+is_local = st.toggle("Use local files for development", value=False)
+
+st.divider()
+
 banks = ["Comdirect", "TradeRepublic", "OLB"]
 process_types = list(set(set(COMDIRECT_PROCESS_MAPPING.values()) | set(TRADEREPUBLIC_PROCESS_MAPPING.values()) | set(OLB_PROCESS_MAPPING.values())))
-comdirect_df, traderepublic_df, olb_df = get_all_bank_data()
 
+comdirect_df, traderepublic_df, olb_df = get_all_bank_data(local_files=is_local, files=uploaded_files)
 # COMDIRECTDF, TRADEREPUBLICDF, OLBDF = (comdirect_df.copy(), traderepublic_df.copy(), olb_df.copy())
 
 selected_banks = st.multiselect("Choose countries", banks, default=["Comdirect", "OLB", "TradeRepublic"])
@@ -28,7 +35,9 @@ df.sort_values(by="date", inplace=True)
 df.reset_index(drop=True, inplace=True)
 
 CURRENT_DF = df.copy()
-
+if df.empty:
+    st.write("### No data available for this configuration")
+    st.stop()
 all_dates = df["date"].sort_values().unique()
 
 start_default = all_dates[0]
