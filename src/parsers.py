@@ -58,7 +58,7 @@ def _parse_comdirect_csv(file) -> pd.DataFrame:
     df[8] = pd.NaT
     df.columns = COLUMNS
 
-    df["datetime"] = pd.to_datetime(df["date"], errors="coerce")
+    df["datetime"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce")
     df["date"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce").dt.date
     df["weekday"] = df["datetime"].dt.weekday  # type: ignore
     df["monthday"] = df["datetime"].dt.day  # type: ignore
@@ -182,7 +182,6 @@ def _parse_traderepublic_pdf(file) -> pd.DataFrame:
         if new_row["process"] == "Kartentransaktion" or new_row["process"] == "Kauf":
             new_row["amount"] = "-" + new_row["amount"]
 
-        # print(new_row)
         traderepublic_df = pd.concat([traderepublic_df, pd.DataFrame([new_row])], ignore_index=True)
         traderepublic_df["weekday"] = traderepublic_df["weekday"].astype(int)
         traderepublic_df["monthday"] = traderepublic_df["monthday"].astype(int)

@@ -27,9 +27,7 @@ def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
 
 # @st.cache_data this is unsafe, cached data is global
 def get_all_bank_data(files=None, is_local: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    print("Using local files for development")
     if is_local:
-        print("Using local files for development")
         comdirect_df = parse_all_comdirect()
         traderepublic_df = parse_all_traderepublic()
         olb_df = parse_all_olb()
@@ -63,8 +61,9 @@ def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
         kmeans = KMeans(n_clusters=10, random_state=9042003)
 
         df["cluster"] = kmeans.fit_predict(embeddings)
-
-        tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric="cosine")
+        n_samples = embeddings.shape[0]
+        perplexity = min(30, max(5, n_samples // 2))
+        tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate=200, metric="cosine")
 
         df[["x", "y"]] = tsne.fit_transform(embeddings)
 
@@ -86,17 +85,19 @@ def load_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
-def session_cache(key, fn, is_local: bool, num_files: int):
+def session_cache(key, fn, is_local: bool, file_hash):
     if "is_local" not in st.session_state:
         st.session_state["is_local"] = is_local
-    if "num_files" not in st.session_state:
-        st.session_state["num_files"] = num_files
+    if "file_hash" not in st.session_state:
+        st.session_state["file_hash"] = file_hash
 
-    if st.session_state["is_local"] != is_local or st.session_state["num_files"] != num_files:
+    if st.session_state["is_local"] != is_local or st.session_state["file_hash"] != file_hash:
+        print(f"Clearing session state for key {key} due to change in is_local or file_hash")
+        # if key in st.session_state:
+        #     del st.session_state[key]
+        st.session_state.clear()
         st.session_state["is_local"] = is_local
-        st.session_state["num_files"] = num_files
-        if key in st.session_state:
-            del st.session_state[key]
+        st.session_state["file_hash"] = file_hash
 
     if key not in st.session_state:
         st.session_state[key] = fn()

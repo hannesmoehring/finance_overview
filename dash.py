@@ -9,6 +9,8 @@ import plotly.express as px
 
 uploaded_files = st.file_uploader("Upload account files", accept_multiple_files=True, type=["csv", "pdf"])
 is_local = st.toggle("Use local files for development", value=False)
+file_hash = hash(tuple(file.name for file in uploaded_files))
+print(f"Uploaded {len(uploaded_files)} files with hash {file_hash}")
 # maybe move removal of session state to here? upon change in is_local or uploaded_files (currently in session_cache(...))
 st.divider()
 
@@ -16,7 +18,7 @@ banks = ["Comdirect", "TradeRepublic", "OLB"]
 process_types = list(set(set(COMDIRECT_PROCESS_MAPPING.values()) | set(TRADEREPUBLIC_PROCESS_MAPPING.values()) | set(OLB_PROCESS_MAPPING.values())))
 
 comdirect_df, traderepublic_df, olb_df = session_cache(
-    "all_bank_data", lambda: get_all_bank_data(files=uploaded_files, is_local=is_local), is_local=is_local, num_files=len(uploaded_files)
+    "all_bank_data", lambda: get_all_bank_data(files=uploaded_files, is_local=is_local), is_local=is_local, file_hash=file_hash
 )
 
 # COMDIRECTDF, TRADEREPUBLICDF, OLBDF = (comdirect_df.copy(), traderepublic_df.copy(), olb_df.copy())
@@ -77,7 +79,7 @@ chart = (
     .properties(width=1000)
 )
 
-st.altair_chart(chart, use_container_width=True)
+st.altair_chart(chart)
 
 st.divider()
 
@@ -121,11 +123,11 @@ chart = (
     )
 )
 
-st.altair_chart(chart, use_container_width=True)
+st.altair_chart(chart)
 
 
 agg_spending, agg_income = session_cache(
-    "embedded_transaction_details", lambda: embed_transaction_details(df), is_local=is_local, num_files=len(uploaded_files)
+    "embedded_transaction_details", lambda: embed_transaction_details(df), is_local=is_local, file_hash=file_hash
 )
 
 if is_spending:
@@ -176,7 +178,7 @@ fig.update_layout(
     ),
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig)
 
 
 week_agg = flow_df.groupby("weekday")["amount"].sum().reset_index()
