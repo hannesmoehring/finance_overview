@@ -34,25 +34,37 @@ def get_all_bank_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
 
 @st.cache_data
-def embed_transaction_details(df: pd.DataFrame, is_spending: bool) -> pd.DataFrame:
-    if is_spending:
-        df = df[df["amount"] < 0]
-        df["amount"] = df["amount"].abs()
-    else:
-        df = df[df["amount"] >= 0]
+def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    spending_df = df[df["amount"] < 0]
+    spending_df["amount"] = df["amount"].abs()
 
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    embeddings = model.encode(df["details"].tolist(), normalize_embeddings=True)
+    income_df = df[df["amount"] >= 0]
 
-    kmeans = KMeans(n_clusters=10, random_state=9042003)
-    df["cluster"] = kmeans.fit_predict(embeddings)
+    model = load_model()
 
-    tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric="cosine")
+    agg_list = []
 
-    df[["x", "y"]] = tsne.fit_transform(embeddings)
+    for df in [spending_df, income_df]:
+        embeddings = model.encode(df["details"].tolist(), normalize_embeddings=True)
+        kmeans = KMeans(n_clusters=10, random_state=9042003)
 
-    agg = df.groupby(["details", "cluster"]).agg(total_amount=("amount", "sum"), x=("x", "mean"), y=("y", "mean")).reset_index()
+        df["cluster"] = kmeans.fit_predict(embeddings)
 
-    agg["cluster"] = agg["cluster"].astype("category")
+        tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric="cosine")
 
-    return agg
+        df[["x", "y"]] = tsne.fit_transform(embeddings)
+
+        agg = df.groupby(["details", "cluster"]).agg(total_amount=("amount", "sum"), x=("x", "mean"), y=("y", "mean")).reset_index()
+
+        agg["cluster"] = agg["cluster"].astype("category")
+
+        agg.reset_index(drop=True, inplace=True)
+
+        agg_list.append(agg)
+
+    return agg_list[0], agg_list[1]
+
+
+@st.cache_resource
+def load_model():
+    return SentenceTransformer("all-MiniLM-L6-v2")
