@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    container_name: finance_dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
