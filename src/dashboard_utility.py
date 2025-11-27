@@ -55,10 +55,12 @@ def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
         df[["x", "y"]] = tsne.fit_transform(embeddings)
 
         agg = df.groupby(["details", "cluster"]).agg(total_amount=("amount", "sum"), x=("x", "mean"), y=("y", "mean")).reset_index()
-
+        agg["total_amount"] = agg["total_amount"]
         agg["cluster"] = agg["cluster"].astype("category")
 
         agg.reset_index(drop=True, inplace=True)
+
+        # agg["total_amount"].agg(lambda x: round(x, 2), inplace=True)
 
         agg_list.append(agg)
 

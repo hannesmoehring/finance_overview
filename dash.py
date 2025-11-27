@@ -10,6 +10,8 @@ banks = ["Comdirect", "TradeRepublic", "OLB"]
 process_types = list(set(set(COMDIRECT_PROCESS_MAPPING.values()) | set(TRADEREPUBLIC_PROCESS_MAPPING.values()) | set(OLB_PROCESS_MAPPING.values())))
 comdirect_df, traderepublic_df, olb_df = get_all_bank_data()
 
+# COMDIRECTDF, TRADEREPUBLICDF, OLBDF = (comdirect_df.copy(), traderepublic_df.copy(), olb_df.copy())
+
 selected_banks = st.multiselect("Choose countries", banks, default=["Comdirect", "OLB", "TradeRepublic"])
 selected_processes = st.multiselect("Choose process types", process_types, default=["Transfer", "Card_Transaction"])
 
@@ -24,6 +26,8 @@ if "OLB" in selected_banks:
 df = df[df["process"].isin(selected_processes)]
 df.sort_values(by="date", inplace=True)
 df.reset_index(drop=True, inplace=True)
+
+CURRENT_DF = df.copy()
 
 all_dates = df["date"].sort_values().unique()
 
@@ -78,6 +82,8 @@ if is_spending:
 else:
     spending_data = df[df["amount"] >= 0]
 
+flow_df = spending_data.copy()
+
 min_spending, max_spending = st.select_slider(
     "Select minimum and maximum spending amount to be considered",
     options=spending_data["amount"].sort_values().unique(),
@@ -105,12 +111,13 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
-# TODO: right now when choosing dates at the top, it will rerun this entire thing,
-# should include dates and types, and just filter cached df, would greatly reduce runtime
-agg = embed_transaction_details(df, is_spending=is_spending)
+agg_spending, agg_income = embed_transaction_details(df)
+if is_spending:
+    agg = agg_spending
+else:
+    agg = agg_income
 
 st.write("## Clustering of transaction details")
-
 num_clusters = agg["cluster"].astype(int).unique()
 num_clusters.sort()
 
@@ -131,7 +138,59 @@ options = st.multiselect(
 filtered_agg = agg[agg["cluster"].isin(st.session_state.selected_clusters)]
 
 cluster_sum = agg.groupby("cluster", as_index=False)["total_amount"].sum()
-st.write(cluster_sum)
 
-fig = px.scatter(filtered_agg, x="x", y="y", size="total_amount", color="cluster", hover_name="details", size_max=60)
+fig = px.scatter(filtered_agg, x="x", size="total_amount", color="cluster", hover_name="details", size_max=50, hover_data={"x": False, "y": False})
+for trace in fig.data:
+    cluster_id = trace.name  # type: ignore
+    total = cluster_sum.loc[cluster_sum["cluster"] == int(cluster_id), "total_amount"].values[0]
+    trace.name = f"{cluster_id} -- {total:.2f} €"  # type: ignore
+
+fig.update_layout(
+    xaxis_title=None,
+    yaxis_title=None,
+    xaxis=dict(
+        showticklabels=False,
+        showgrid=True,
+        zeroline=True,
+    ),
+    yaxis=dict(
+        showticklabels=False,
+        showgrid=True,
+        zeroline=True,
+    ),
+)
+
 st.plotly_chart(fig, use_container_width=True)
+
+
+week_agg = flow_df.groupby("weekday")["amount"].sum().reset_index()
+month_agg = flow_df.groupby("monthday")["amount"].sum().reset_index()
+
+weekday_heatmap = (
+    alt.Chart(week_agg)
+    .mark_rect()
+    .encode(
+        x=alt.X("weekday:O", title="Weekday"),
+        y=alt.Y("sum(amount):Q", title="Total Spend"),
+        color=alt.Color("amount:Q", scale=alt.Scale(scheme="blues")),
+        tooltip=["weekday", "amount"],
+    )
+)
+
+
+month_heatmap = (
+    alt.Chart(month_agg)
+    .mark_rect()
+    .encode(
+        x=alt.X("monthday:O", title="Day of month"),
+        y=alt.Y("sum(amount):Q", title="Total Spend"),
+        color=alt.Color("amount:Q", scale=alt.Scale(scheme="greens")),
+        tooltip=["monthday", "amount"],
+    )
+)
+
+st.write("## Heatmaps")
+st.write("### Spending / Income by weekday")
+st.altair_chart(weekday_heatmap)
+st.write("### Spending / Income by monthday")
+st.altair_chart(month_heatmap)

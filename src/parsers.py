@@ -30,7 +30,9 @@ COLUMNS = [
     "process",
     "details",
     "amount",
-    # "datetime",
+    "datetime",
+    "monthday",
+    "weekday",
 ]
 
 
@@ -50,10 +52,15 @@ def _parse_comdirect_csv(file_path: str) -> pd.DataFrame:
     )
     df.drop(columns=[0], inplace=True)
     df.drop(columns=[5], inplace=True)
+    df[6] = pd.NaT
+    df[7] = pd.NaT
+    df[8] = pd.NaT
     df.columns = COLUMNS
 
-    df = df[df["date"].notna()]
+    df["datetime"] = pd.to_datetime(df["date"], errors="coerce")
     df["date"] = pd.to_datetime(df["date"], format="%d.%m.%Y", errors="coerce").dt.date
+    df["weekday"] = df["datetime"].dt.weekday  # type: ignore
+    df["monthday"] = df["datetime"].dt.day  # type: ignore
     df["amount"] = pd.to_numeric(df["amount"].str.replace(".", "").str.replace(",", "."))
     df["process"] = df["process"].astype("category")
     df["details"] = df["details"].astype("string")
@@ -66,6 +73,9 @@ def parse_all_comdirect() -> pd.DataFrame:
     all_files = glob(os.path.join(dir_path, "*.csv"))
     df_list = [_parse_comdirect_csv(file) for file in all_files]
     combined_df = pd.concat(df_list, ignore_index=True)
+
+    combined_df.dropna(inplace=True)
+
     combined_df.sort_values(by="date", inplace=True)
     combined_df.reset_index(drop=True, inplace=True)
 
@@ -81,6 +91,8 @@ def parse_all_comdirect() -> pd.DataFrame:
 
     combined_df["long_details"] = combined_df["details"]
     combined_df["details"] = combined_df["details"].str.split(" ").str[1:4].str.join(" ")
+    combined_df["weekday"] = combined_df["weekday"].astype(int)
+    combined_df["monthday"] = combined_df["monthday"].astype(int)
 
     return combined_df
 
@@ -146,6 +158,8 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
         assert dt1 is not None
         new_row["date"] = dt1.date()  # type: ignore
         new_row["datetime"] = dt1  # type: ignore
+        new_row["weekday"] = new_row["datetime"].weekday()  # type: ignore
+        new_row["monthday"] = new_row["datetime"].day  # type: ignore
         new_row["process"] = line_split[3]
         new_row["amount"] = line_split[-2].split("\xa0")[0].replace(".", "").replace(",", ".")
         if line_split[3] == "Überweisung":
@@ -161,6 +175,8 @@ def _parse_traderepublic_pdf(path: str) -> pd.DataFrame:
 
         # print(new_row)
         traderepublic_df = pd.concat([traderepublic_df, pd.DataFrame([new_row])], ignore_index=True)
+        traderepublic_df["weekday"] = traderepublic_df["weekday"].astype(int)
+        traderepublic_df["monthday"] = traderepublic_df["monthday"].astype(int)
 
     return traderepublic_df
 
@@ -169,9 +185,11 @@ def _parse_olb_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, sep=";", encoding="cp1252")
     df["Empfänger/Auftraggeber"] = df["Empfï¿½nger/Auftraggeber"]
     olb_df = pd.DataFrame(columns=COLUMNS)
-
     # olb_df["datetime"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt
     olb_df["date"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])), format="%Y-%m-%d").dt.date
+    olb_df["datetime"] = pd.to_datetime(df["Buchungsdatum"].apply(lambda x: dateparser.parse(x, languages=["de"])))
+    olb_df["weekday"] = (olb_df["datetime"].dt.weekday).astype(int)  # type: ignore
+    olb_df["monthday"] = (olb_df["datetime"].dt.day).astype(int)  # type: ignore
     olb_df["process"] = "Transfer"
     olb_df["details"] = df["Empfänger/Auftraggeber"]
     olb_df["amount"] = df["Betrag"].str.replace(".", "").str.replace(",", ".").astype(float)
