@@ -60,8 +60,8 @@ def embed_transaction_details(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
         embeddings = model.encode(df["details"].tolist(), normalize_embeddings=True)
 
         n_samples = embeddings.shape[0]
-
-        kmeans = KMeans(n_clusters=10 if n_samples >= 10 else n_samples, random_state=9042003)
+        n_clusters = 10 if n_samples >= 10 else n_samples
+        kmeans = KMeans(n_clusters=n_clusters, random_state=9042003)
         df["cluster"] = kmeans.fit_predict(embeddings)
         perplexity = min(30, max(5, n_samples // 2))
         tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate=200, metric="cosine")
