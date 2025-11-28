@@ -7,6 +7,11 @@ from src.dashboard_utility import embed_transaction_details, get_monthly_data, g
 import plotly.express as px
 
 
+st.set_page_config(
+    page_title="Finance Dashboard",
+    page_icon="📊",
+)
+
 uploaded_files = st.file_uploader("Upload account files", accept_multiple_files=True, type=["csv", "pdf"])
 is_local = st.toggle("Use local files for development", value=False)
 file_hash = hash(tuple(file.name for file in uploaded_files))

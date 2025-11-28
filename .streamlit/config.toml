@@ -1,0 +1,11 @@
+[server]
+port = 8501
+address = "0.0.0.0"
+maxUploadSize = 10
+enableXsrfProtection = true
+# enableCORS = false # will be enabled anyway if XsrfProtection is true
+enableStaticServing = false
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
