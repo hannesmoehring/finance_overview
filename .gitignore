@@ -1,6 +1,3 @@
-docker-compose.yml
-
-
 .python-version
 finance_data/
 .DS_Store

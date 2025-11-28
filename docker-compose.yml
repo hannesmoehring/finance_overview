@@ -12,3 +12,7 @@ services:
 networks:
   nginx_proxy_manager_default:
     external: true
+
+
+# git update-index --assume-unchanged docker-compose.yml
+# git update-index --no-assume-unchanged docker-compose.yml
