@@ -6,3 +6,9 @@ services:
     #   - "8501:8501"
     volumes:
       - .:/app
+    networks:
+      - nginx_proxy_manager_default
+    
+networks:
+  nginx_proxy_manager_default:
+    external: true

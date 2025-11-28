@@ -38,9 +38,9 @@ def get_all_bank_data(files=None, is_local: bool = False) -> tuple[pd.DataFrame,
         traderepublic_files = [file for file in files if file.name.endswith(".pdf")]
         olb_files = [file for file in files if "CSV-Export" in file.name]
 
-        comdirect_df = parse_all_comdirect(comdirect_files)
-        traderepublic_df = parse_all_traderepublic(traderepublic_files)
-        olb_df = parse_all_olb(olb_files)
+        comdirect_df = parse_all_comdirect(comdirect_files) if len(comdirect_files) > 0 else pd.DataFrame()
+        traderepublic_df = parse_all_traderepublic(traderepublic_files) if len(traderepublic_files) > 0 else pd.DataFrame()
+        olb_df = parse_all_olb(olb_files) if len(olb_files) > 0 else pd.DataFrame()
 
     return comdirect_df, traderepublic_df, olb_df
 
